@@ -14,10 +14,10 @@ The agent operates as a **Stateful Cyclic Graph**. Instead of a linear prompt, i
 4.  **Deterministic Guardrail:** Prevents LLM hallucinations in "Dead Zones" by bypassing synthesis if zero valid points of interest are found.
 5.  **Vibe-Based Synthesis:** Personalizes tone and selection based on user "vibe" (Spiritual, Historical, Nature, etc.).
 
-### 📊 System Flow
+### System Flow
 ![Architecture Diagram](./architecture_flow.png)
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Orchestration:** LangGraph (StateGraph)
 - **LLM:** Google Gemini 2.5flash
