@@ -1,18 +1,18 @@
 # WanderWise AI 🌍🧠
 
-> **An Intelligent Agentic Orchestrator for Real-time Travel Itinerary Synthesis**
+> **An Intelligent Agentic Orchestrator for High-Precision Travel Itinerary Synthesis**
 
-Built using **LangGraph** and **Gemini 2.5 flash**, it moves beyond simple RAG (Retrieval-Augmented Generation) by implementing a **deterministic feedback loop** that intelligently expands search parameters to find the perfect travel spots, regardless of location density.
+WanderWise is a Agentic AI system built with **LangGraph** and **Gemini 2.5 Flash**. It moves beyond standard RAG by implementing a **Quality-First Deterministic Loop**—prioritizing high-vibe relevance over raw data quantity.
 
 ## Technical Architecture
 
-The agent operates as a **Stateful Cyclic Graph**. Instead of a linear prompt, it follows a multi-stage reasoning process:
+The system is designed as a **Stateful Directed Acyclic Graph (DAG)** with recursive recovery loops. It follows a multi-stage cognitive process:
 
-1.  **Contextual Awareness:** Fetches real-time weather data to influence recommendation logic (e.g., prioritizing indoor spots during rain).
-2.  **Iterative Discovery:** Queries geospatial APIs with a dynamic radius.
-3.  **Self-Correction Loop:** If result density is low, the agent triggers an "Expand Search" node, increasing the radius by 5km and retrying (up to 3 attempts).
-4.  **Deterministic Guardrail:** Prevents LLM hallucinations in "Dead Zones" by bypassing synthesis if zero valid points of interest are found.
-5.  **Vibe-Based Synthesis:** Personalizes tone and selection based on user "vibe" (Spiritual, Historical, Nature, etc.).
+1.  **Environmental Awareness:** Fetches real-time weather (OpenWeatherMap) to contextualize the "Vibe" (e.g., suggesting indoor spots if it's 35°C+).
+2.  **Autonomous Discovery:** Queries Geoapify APIs using a dynamic radius-expansion strategy.
+3.  **Intelligent Re-Ranking:** A dedicated LLM node evaluates raw POI data against the user's "Vibe" (Nature, Spiritual, etc.), scoring results and filtering for 8+ "High-Match" candidates.
+4.  **Efficiency Router:** Implements a "Satisficing" logic—if 5+ high-quality matches are found, it breaks the loop early to save latency/tokens. Otherwise, it expands the radius (+5km) and retries.
+5.  **Structured Synthesis:** Organizes validated points into a logical Morning/Afternoon/Evening flow, ensuring 0% hallucination of non-existent venues.
 
 ### System Flow
 ![Architecture Diagram](./architecture_flow.png)
@@ -20,13 +20,14 @@ The agent operates as a **Stateful Cyclic Graph**. Instead of a linear prompt, i
 ## Tech Stack
 
 - **Orchestration:** LangGraph (StateGraph)
-- **LLM:** Google Gemini 2.5flash
-- **Data Sources:** Geoapify (Places API), OpenWeatherMap (Real-time Weather)
-- **Schema & Validation:** Pydantic
-- **Environment:** Python 3.10+, Dotenv
+- **Intelligence:** Google Gemini 2.5 Flash
+- **Geospatial Data:** Geoapify Places API
+- **Climate Data:** OpenWeatherMap API
+- **Data Integrity:** Pydantic (AgentState)
+- **Memory:** `MemorySaver` (Checkpointing for multi-turn threads)
 
 ## Key Breakthroughs
 
-- **Hallucination Mitigation:** Implemented short-circuit logic that validates data presence before LLM invocation, ensuring 0% fake recommendations in sparse areas.
-- **Resilient Search:** Built an automated retry mechanism that solved the "Rural Sparse Data" problem, increasing successful POI retrieval in non-urban areas.
-- **Stateful Thread Management:** Uses `MemorySaver` to maintain conversation context and search history across multi-turn interactions.
+- **Quality-Centric Routing:** Optimized the search loop to prioritize "High-Vibe" matches over count, reducing unnecessary API calls in dense urban areas (e.g., Bengaluru).
+- **The "Dead Zone" Protocol:** Short-circuit logic that provides a graceful, data-driven response when zero physical locations match the criteria, rather than allowing the LLM to invent spots.
+- **Context-Aware Reranking:** Uses Gemini to perform semantic filtering on raw JSON data, bridging the gap between rigid API categories and subjective user "Vibes."
