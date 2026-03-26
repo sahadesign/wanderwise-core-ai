@@ -4,9 +4,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import MemorySaver
 
 from pydantic import BaseModel
-from typing import List, Literal, Annotated
+from typing import List, Dict, Literal
 from dotenv import load_dotenv
-from operator import add
 import requests
 import logging
 import os
@@ -21,7 +20,8 @@ class AgentState(BaseModel):
     user_location: str
     user_vibe: str = "general"
     weather_context: str = ""
-    nearby_places: Annotated[List[dict], add] = []
+    nearby_places: List[dict]= []
+    structured_plan: Dict[str, List[dict]] = {}
     radius: int = 5000
     retry_count: int = 0
     final_recommendation: str = ""
@@ -30,11 +30,11 @@ class AgentState(BaseModel):
 # The Wander Wise Agent Class
 class WanderWiseAgent:
     VIBE_MAP = {
+        "nature": "leisure.park,leisure.park.garden,natural.forest,natural.protected_area",
         "spiritual": "religion.place_of_worship,heritage",
-        "nature": "natural,leisure.park,camping",
-        "shopping": "commercial.shopping_mall,leisure.market",
-        "historical": "heritage,tourism.sights",
-        "general": "tourism,leisure,entertainment",
+        "shopping": "commercial.shopping_mall,commercial.marketplace",
+        "historical": "heritage,building.historic,tourism.sights",
+        "general": "tourism,entertainment,leisure",
     }
 
     def __init__(self, google_api_key: str, geo_api_key: str, weather_api_key: str):
@@ -57,6 +57,8 @@ class WanderWiseAgent:
         builder.add_node("fetch_weather", self._weather_node)
         builder.add_node("get_places", self._suggestions_node)
         builder.add_node("expand_search", self._expand_search_node)
+        builder.add_node("rerank_results", self._reranker_node)
+        builder.add_node("plan_itinerary", self._itinerary_planner_node)
         builder.add_node("llm_guide", self._llm_node)
 
         builder.add_edge(START, "fetch_weather")
@@ -65,10 +67,12 @@ class WanderWiseAgent:
         builder.add_conditional_edges(
             "get_places",
             self._route_based_on_results,
-            {"expand_search": "expand_search", "generate_guide": "llm_guide"},
+            {"expand_search": "expand_search", "generate_guide": "rerank_results"},
         )
 
         builder.add_edge("expand_search", "get_places")
+        builder.add_edge("rerank_results", "plan_itinerary")
+        builder.add_edge("plan_itinerary", "llm_guide")
         builder.add_edge("llm_guide", END)
 
         return builder
@@ -107,6 +111,10 @@ class WanderWiseAgent:
             categories = self.VIBE_MAP.get(
                 state.user_vibe.lower(), self.VIBE_MAP["general"]
             )
+
+            if state.retry_count > 0:
+                categories += ",tourism.sights,entertainment.culture"
+
             url = (
                 f"https://api.geoapify.com/v2/places?categories={categories}&"
                 f"filter=circle:{lon.strip()},{lat.strip()},{state.radius}&"
@@ -128,7 +136,7 @@ class WanderWiseAgent:
                             "address": p["properties"].get("address_line2"),
                         }
                     )
-            return {"nearby_places": unique_new}
+            return {"nearby_places": state.nearby_places + unique_new}
 
         except Exception as e:
             logger.error(f"Places Fetch Failed: {e}")
@@ -137,7 +145,10 @@ class WanderWiseAgent:
     def _route_based_on_results(
         self, state: AgentState
     ) -> Literal["expand_search", "generate_guide"]:
-        if len(state.nearby_places) < 10 and state.retry_count < 3:
+        if len(state.nearby_places) >= 5: 
+           return "generate_guide"
+
+        if state.retry_count < 3:
             return "expand_search"
         return "generate_guide"
 
@@ -147,6 +158,80 @@ class WanderWiseAgent:
             f"Expanding search to {new_radius}m (Retry: {state.retry_count + 1})"
         )
         return {"radius": new_radius, "retry_count": state.retry_count + 1}
+
+    def _itinerary_planner_node(self, state: AgentState):
+        sorted_spots = sorted(state.nearby_places, key=lambda x: x["distance_meters"])
+        
+        count = len(sorted_spots)
+        morning_end = max(1, count // 3)
+        afternoon_end = max(morning_end + 1, (2 * count) // 3)
+
+        if count == 1:
+            itinerary = {"Morning (9 AM - 12 PM)": [sorted_spots[0]], "Afternoon (1 PM - 5 PM)": [], "Evening (6 PM - 9 PM)": []}
+        elif count == 2:
+            itinerary = {"Morning (9 AM - 12 PM)": [sorted_spots[0]], "Afternoon (1 PM - 5 PM)": [sorted_spots[1]], "Evening (6 PM - 9 PM)": []}
+        else:
+            itinerary = {
+                "Morning (9 AM - 12 PM)": sorted_spots[:morning_end],
+                "Afternoon (1 PM - 5 PM)": sorted_spots[morning_end:afternoon_end],
+                "Evening (6 PM - 9 PM)": sorted_spots[afternoon_end:],
+            }
+        
+        logger.info(f"Structured itinerary planned with {len(sorted_spots)} spots.")
+        return {"structured_plan": itinerary}
+
+    def _reranker_node(self, state: AgentState):
+        if not state.nearby_places:
+            return {"nearby_places": []}
+
+        places_list = [
+            {"id": i, "name": p["name"], "address": p["address"]}
+            for i, p in enumerate(state.nearby_places)
+        ]
+
+        prompt = f"""
+        User Vibe: {state.user_vibe}
+        Places to Evaluate: {places_list}
+
+        Task: Assign a relevance score (1 - 10) based on how well each place fits the '{state.user_vibe}' vibe.
+        - 8-10: Perfect fit (e.g., Temple for 'Spiritual').
+        - 5-7: Acceptable/Neutral (e.g., A quiet park).
+        - 1-4: Poor fit (e.g., A busy shopping mall for 'Spiritual').
+
+        Return ONLY a JSON list of objects: [{{"id": 0, "score": 9}}, ...]
+        """
+
+        try:
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            raw_json = response.content.strip()
+            if "```json" in raw_json:
+                raw_json = raw_json.split("```json")[1].split("```")[0].strip()
+            elif "```" in raw_json:
+                raw_json = raw_json.split("```")[1].split("```")[0].strip()
+            import json
+
+            scores = json.loads(raw_json)
+            score_map = {item["id"]: item["score"] for item in scores}
+
+            high_vibe_relevent_places = [
+                p for i, p in enumerate(state.nearby_places)
+                if score_map.get(i, 0) >= 6
+            ]
+
+            if len(high_vibe_relevent_places) < 3:
+                logger.info("Strict filter too aggressive. Switching to top scorers.")
+                sorted_by_score = sorted(
+                    state.nearby_places,
+                    key = lambda x: score_map.get(state.nearby_places.index(x), 0),
+                    reverse = True
+                )
+                high_vibe_relevent_places = sorted_by_score[:5]
+
+            logger.info(f"Re-Ranker filtered {len(state.nearby_places)} spots down to {len(high_vibe_relevent_places)} high vibe matches.")
+            return {"nearby_places": high_vibe_relevent_places}
+        except Exception as e:
+            logger.error(f"Re-ranking failed: {e}. Falling back to original list")
+            return {"nearby_places": state.nearby_places}
 
     def _llm_node(self, state: AgentState):
         if not state.nearby_places:
@@ -159,9 +244,11 @@ class WanderWiseAgent:
                 )
             }
 
-        sorted_places = sorted(state.nearby_places, key=lambda x: x["distance_meters"])[
-            :10
-        ]
+        plan_str = ""
+        for time_slot, spots in state.structured_plan.items():
+            plan_str += f"\{time_slot}:\n"
+            for spot in spots:
+                plan_str += f"- {spot['name']} ({spot['distance_meters']}m away)\n"
 
         status_msg = ""
         if state.retry_count >= 3 and len(state.nearby_places) < 10:
@@ -172,15 +259,13 @@ class WanderWiseAgent:
         Context:
         - User Vibe: {state.user_vibe}
         - Weather: {state.weather_context}
-        - Top 10 Nearby Spots: {sorted_places}
+        - I have organized a logical, non-zig-zag route for the user:
+        {plan_str}
 
-        Role: You are Wander Wise AI. Create a 'vibe-based' itinerary recommendation. 
-        Strict Rule: ONLY recommend places listed in the 'Top 10 Nearby Spots' above. 
-        If the list has fewer than 10 spots, only talk about those. Do not invent new ones.
-        
-        If vibe is 'spiritual', be respectful. If 'shopping', be energetic.
-        If it's 'raining', suggest indoor spots. If 'sunny', suggest parks.
-        List the spots with their distances.
+        Role: You are Wander Wise AI. Write a friendly, cohesive daily guide. 
+        1. Explain why the Morning spots are a great start.
+        2. Reference the weather for the Afternoon (e.g., if it's hot, mention staying cool).
+        3. Keep the tone matching the '{state.user_vibe}' vibe.
         """
         response = self.llm.invoke([HumanMessage(content=prompt)])
         return {"final_recommendation": response.content}
@@ -234,6 +319,11 @@ if __name__ == "__main__":
         )
 
         print(f"Final Radius Reached: {result.get('radius', 5000)}m")
+        print("LOGISTICS CHECK (Structured Plan):")
+        plan = result.get("structured_plan", {})
+        for slot, spots in plan.items():
+            names = [s["name"] for s in spots]
+            print(f"  {slot}: {', '.join(names) if names else 'Empty'}")
         print(f"Total Spots Found: {len(result.get('nearby_places', []))}")
         print("-" * 10)
         print(f"Wander Wise Recommendation:\n{result['final_recommendation']}")
