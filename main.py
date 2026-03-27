@@ -8,6 +8,7 @@ from typing import List, Dict, Literal
 from dotenv import load_dotenv
 import requests
 import logging
+import json
 import os
 
 
@@ -17,10 +18,11 @@ logger = logging.getLogger("WanderWise")
 
 # State definition
 class AgentState(BaseModel):
-    user_location: str
+    user_query: str
+    user_location: str = ""
     user_vibe: str = "general"
     weather_context: str = ""
-    nearby_places: List[dict]= []
+    nearby_places: List[dict] = []
     structured_plan: Dict[str, List[dict]] = {}
     radius: int = 5000
     retry_count: int = 0
@@ -54,6 +56,7 @@ class WanderWiseAgent:
     def _create_workflow(self) -> StateGraph:
         builder = StateGraph(AgentState)
 
+        builder.add_node("geocode", self._geocoding_node)
         builder.add_node("fetch_weather", self._weather_node)
         builder.add_node("get_places", self._suggestions_node)
         builder.add_node("expand_search", self._expand_search_node)
@@ -61,7 +64,8 @@ class WanderWiseAgent:
         builder.add_node("plan_itinerary", self._itinerary_planner_node)
         builder.add_node("llm_guide", self._llm_node)
 
-        builder.add_edge(START, "fetch_weather")
+        builder.add_edge(START, "geocode")
+        builder.add_edge("geocode", "fetch_weather")
         builder.add_edge("fetch_weather", "get_places")
 
         builder.add_conditional_edges(
@@ -77,9 +81,26 @@ class WanderWiseAgent:
 
         return builder
 
+    def _geocoding_node(self, state: AgentState):
+        try:
+            url = (
+                f"https://api.geoapify.com/v1/geocode/search?"
+                f"text={state.user_query}&apiKey={self.geo_api_key}"
+            )
+            data = requests.get(url).json()
+            lon = data["features"][0]["properties"]["lon"]
+            lat = data["features"][0]["properties"]["lat"]
+            return {"user_location": f"{lat}, {lon}"}
+        except Exception as e:
+            logging.error(f"Geocoding failed: {e}")
+            return {"user_location": "0,0"}
+
     def _weather_node(self, state: AgentState):
         """Fetches real-time weather data for a given 'latitude, longitude'."""
         try:
+            if "," not in state.user_location:
+                return {"weather_context": "Location invalid"}
+
             lat, lon = state.user_location.split(",")
             url = (
                 f"https://api.openweathermap.org/data/2.5/weather?"
@@ -94,14 +115,14 @@ class WanderWiseAgent:
             return {
                 "weather_context": context,
                 "radius": state.radius,
-                "retry_count": state.retry_count
+                "retry_count": state.retry_count,
             }
         except Exception as e:
             logger.error(f"Weather Fetch Failed: {e}")
             return {
                 "weather_context": "Weather data unavailable",
                 "radius": state.radius,
-                "retry_count": state.retry_count
+                "retry_count": state.retry_count,
             }
 
     def _suggestions_node(self, state: AgentState):
@@ -145,8 +166,8 @@ class WanderWiseAgent:
     def _route_based_on_results(
         self, state: AgentState
     ) -> Literal["expand_search", "generate_guide"]:
-        if len(state.nearby_places) >= 5: 
-           return "generate_guide"
+        if len(state.nearby_places) >= 5:
+            return "generate_guide"
 
         if state.retry_count < 3:
             return "expand_search"
@@ -161,22 +182,30 @@ class WanderWiseAgent:
 
     def _itinerary_planner_node(self, state: AgentState):
         sorted_spots = sorted(state.nearby_places, key=lambda x: x["distance_meters"])
-        
+
         count = len(sorted_spots)
         morning_end = max(1, count // 3)
         afternoon_end = max(morning_end + 1, (2 * count) // 3)
 
         if count == 1:
-            itinerary = {"Morning (9 AM - 12 PM)": [sorted_spots[0]], "Afternoon (1 PM - 5 PM)": [], "Evening (6 PM - 9 PM)": []}
+            itinerary = {
+                "Morning (9 AM - 12 PM)": [sorted_spots[0]],
+                "Afternoon (1 PM - 5 PM)": [],
+                "Evening (6 PM - 9 PM)": [],
+            }
         elif count == 2:
-            itinerary = {"Morning (9 AM - 12 PM)": [sorted_spots[0]], "Afternoon (1 PM - 5 PM)": [sorted_spots[1]], "Evening (6 PM - 9 PM)": []}
+            itinerary = {
+                "Morning (9 AM - 12 PM)": [sorted_spots[0]],
+                "Afternoon (1 PM - 5 PM)": [sorted_spots[1]],
+                "Evening (6 PM - 9 PM)": [],
+            }
         else:
             itinerary = {
                 "Morning (9 AM - 12 PM)": sorted_spots[:morning_end],
                 "Afternoon (1 PM - 5 PM)": sorted_spots[morning_end:afternoon_end],
                 "Evening (6 PM - 9 PM)": sorted_spots[afternoon_end:],
             }
-        
+
         logger.info(f"Structured itinerary planned with {len(sorted_spots)} spots.")
         return {"structured_plan": itinerary}
 
@@ -208,26 +237,26 @@ class WanderWiseAgent:
                 raw_json = raw_json.split("```json")[1].split("```")[0].strip()
             elif "```" in raw_json:
                 raw_json = raw_json.split("```")[1].split("```")[0].strip()
-            import json
 
             scores = json.loads(raw_json)
             score_map = {item["id"]: item["score"] for item in scores}
 
             high_vibe_relevent_places = [
-                p for i, p in enumerate(state.nearby_places)
-                if score_map.get(i, 0) >= 6
+                p for i, p in enumerate(state.nearby_places) if score_map.get(i, 0) >= 6
             ]
 
             if len(high_vibe_relevent_places) < 3:
                 logger.info("Strict filter too aggressive. Switching to top scorers.")
                 sorted_by_score = sorted(
                     state.nearby_places,
-                    key = lambda x: score_map.get(state.nearby_places.index(x), 0),
-                    reverse = True
+                    key=lambda x: score_map.get(state.nearby_places.index(x), 0),
+                    reverse=True,
                 )
                 high_vibe_relevent_places = sorted_by_score[:5]
 
-            logger.info(f"Re-Ranker filtered {len(state.nearby_places)} spots down to {len(high_vibe_relevent_places)} high vibe matches.")
+            logger.info(
+                f"Re-Ranker filtered {len(state.nearby_places)} spots down to {len(high_vibe_relevent_places)} high vibe matches."
+            )
             return {"nearby_places": high_vibe_relevent_places}
         except Exception as e:
             logger.error(f"Re-ranking failed: {e}. Falling back to original list")
@@ -278,7 +307,7 @@ class WanderWiseAgent:
 
 if __name__ == "__main__":
     load_dotenv()
-    
+
     # Initialize the Agent
     agent = WanderWiseAgent(
         google_api_key=os.getenv("GOOGLE_API_KEY"),
@@ -311,11 +340,11 @@ if __name__ == "__main__":
 
     for scenario in test_scenarios:
         print(f"\n{'-'*20} RUNNING TEST: {scenario['name']} {'-'*20}")
-        
+
         result = agent.get_itinerary(
-            location=scenario["location"], 
-            vibe=scenario["vibe"], 
-            user_id=scenario["name"] 
+            location=scenario["location"],
+            vibe=scenario["vibe"],
+            user_id=scenario["name"],
         )
 
         print(f"Final Radius Reached: {result.get('radius', 5000)}m")

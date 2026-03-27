@@ -1,0 +1,42 @@
+[project]
+session_timeout = 3600
+user_session_timeout = 1296000
+cache = false
+persist_user_env = false
+mask_user_env = false
+allow_origins = ["*"]
+
+[features]
+unsafe_allow_html = true # REQUIRED for your app.py CSS injections
+latex = false
+user_message_markdown = true
+user_message_autoscroll = true
+assistant_message_autoscroll = true
+auto_tag_thread = true
+edit_message = true
+
+[features.spontaneous_file_upload]
+enabled = true
+accept = ["*/*"]
+max_files = 20
+max_size_mb = 500
+
+[UI]
+name = "WanderWise AI"
+default_theme = "light"
+layout = "wide"
+# Path is relative to the 'public' folder
+chat_settings_location = "sidebar"
+default_chat_settings_open = true
+cot = "full"
+show_readme = true
+
+[theme]
+primary = "#000000"
+
+[theme.light]
+background = "#FFF9E5"
+paper = "#E8F5E9"
+
+[meta]
+generated_by = "2.10.0"
