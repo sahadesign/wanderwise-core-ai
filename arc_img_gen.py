@@ -16,10 +16,6 @@ def generate_diagram(agent_app, filename="architecture_flow.png"):
         print(agent_app.get_graph().draw_mermaid())
 
 
-agent = WanderWiseAgent(
-    google_api_key=os.getenv("GOOGLE_API_KEY"),
-    geo_api_key=os.getenv("GEOAPIFY_API_KEY"),
-    weather_api_key=os.getenv("OPENWEATHER_API_KEY"),
-)
+agent = WanderWiseAgent()
 
 generate_diagram(agent.app)

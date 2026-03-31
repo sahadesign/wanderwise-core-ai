@@ -1,3 +1,5 @@
 /__pycache__
 .env
 /.chainlit/translations
+/source/__pycache__
+/ui/__pycache__
