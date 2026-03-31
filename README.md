@@ -15,7 +15,7 @@ The system is designed as a **Stateful Directed Acyclic Graph (DAG)** with recur
 5.  **Structured Synthesis:** Organizes validated points into a logical Morning/Afternoon/Evening flow, ensuring 0% hallucination of non-existent venues.
 
 ### System Flow
-![Architecture Diagram](./architecture_flow.png)
+![Architecture Diagram](./architecture.png)
 
 ## Tech Stack
 
