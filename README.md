@@ -2,7 +2,7 @@
 
 > **An Adaptive Agentic Orchestrator for High-Precision Travel Itinerary Synthesis**
 
-WanderWise is a state-of-the-art Agentic AI system built with **LangGraph**, **Gemini 2.5 Flash**, and **Chainlit**. It moves beyond standard RAG by implementing a **Quality-First Deterministic Loop**—prioritizing high-vibe relevance and real-world environmental context over raw data quantity.
+WanderWise is a Agentic AI system built with **LangGraph**, **Gemini 2.5 Flash**, and **Chainlit**. It moves beyond standard RAG by implementing a **Quality-First Deterministic Loop**—prioritizing high-vibe relevance and real-world environmental context over raw data quantity.
 
 ---
 
