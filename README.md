@@ -1,33 +1,54 @@
 # WanderWise AI 🌍🧠
 
-> **An Intelligent Agentic Orchestrator for High-Precision Travel Itinerary Synthesis**
+> **An Adaptive Agentic Orchestrator for High-Precision Travel Itinerary Synthesis**
 
-WanderWise is a Agentic AI system built with **LangGraph** and **Gemini 2.5 Flash**. It moves beyond standard RAG by implementing a **Quality-First Deterministic Loop**—prioritizing high-vibe relevance over raw data quantity.
+WanderWise is a state-of-the-art Agentic AI system built with **LangGraph**, **Gemini 2.5 Flash**, and **Chainlit**. It moves beyond standard RAG by implementing a **Quality-First Deterministic Loop**—prioritizing high-vibe relevance and real-world environmental context over raw data quantity.
+
+---
+
+## Features
+
+* **Interactive Human-in-the-Loop (HITL):** A sophisticated UI flow that prompts users for location permissions or manual entry when destination intent is ambiguous (`DETECT` state).
+* **Multi-Provider Geo-Location:** A robust "Fail-Safe" IP-to-Coordinate engine using multiple providers (ip-api, ipapi.co) with automatic connection timeout recovery.
+* **Dynamic "Vibe" Control:** Integrated Sidebar settings allowing users to toggle between *Nature, Spiritual, Shopping,* and *Historical* personas in real-time.
+* **Stateful Threading:** Leverages `MemorySaver` to maintain context across multi-turn conversations, allowing users to refine itineraries mid-chat using unique session IDs.
+
+---
 
 ## Technical Architecture
 
-The system is designed as a **Stateful Directed Acyclic Graph (DAG)** with recursive recovery loops. It follows a multi-stage cognitive process:
+The system is designed as a **Stateful Directed Graph** with recursive recovery loops, governed by a strict **Pydantic AgentState**.
 
-1.  **Environmental Awareness:** Fetches real-time weather (OpenWeatherMap) to contextualize the "Vibe" (e.g., suggesting indoor spots if it's 35°C+).
-2.  **Autonomous Discovery:** Queries Geoapify APIs using a dynamic radius-expansion strategy.
-3.  **Intelligent Re-Ranking:** A dedicated LLM node evaluates raw POI data against the user's "Vibe" (Nature, Spiritual, etc.), scoring results and filtering for 8+ "High-Match" candidates.
-4.  **Efficiency Router:** Implements a "Satisficing" logic—if 5+ high-quality matches are found, it breaks the loop early to save latency/tokens. Otherwise, it expands the radius (+5km) and retries.
-5.  **Structured Synthesis:** Organizes validated points into a logical Morning/Afternoon/Evening flow, ensuring 0% hallucination of non-existent venues.
+### The Multi-Stage Cognitive Process:
+
+1.  **Intent Extraction:** A dedicated LLM node parses user queries to detect "Vibe" and "Location" (using a `DETECT` flag for ambiguous inputs).
+2.  **Environmental Awareness:** Synchronizes with **OpenWeatherMap** to contextualize suggestions (e.g., prioritizing indoor "Historical" spots if local temperatures exceed 35°C).
+3.  **Autonomous Discovery:** Queries the **Geoapify Places API** using a dynamic radius-expansion strategy.
+4.  **Intelligent Re-Ranking:** Gemini 2.5 Flash evaluates raw POI JSON against the user’s selected "Vibe," scoring results and filtering for "High-Match" candidates.
+5.  **Deterministic Synthesis:** Organizes validated coordinates and metadata into a logical Morning/Afternoon/Evening flow with **0% hallucination** of non-existent venues.
+
+---
 
 ### System Flow
 ![Architecture Diagram](./architecture.png)
 
+---
+
 ## Tech Stack
 
-- **Orchestration:** LangGraph (StateGraph)
-- **Intelligence:** Google Gemini 2.5 Flash
-- **Geospatial Data:** Geoapify Places API
-- **Climate Data:** OpenWeatherMap API
-- **Data Integrity:** Pydantic (AgentState)
-- **Memory:** `MemorySaver` (Checkpointing for multi-turn threads)
+* **Orchestration:** LangGraph (StateGraph)
+* **Intelligence:** Google Gemini 2.5 Flash
+* **Interface:** Chainlit
+* **APIs:** Geoapify Places API, OpenWeatherMap API & IP-API
+* **Data Integrity:** Pydantic (Strict Validation)
+* **Memory:** `MemorySaver` (Checkpointing)
+
+---
 
 ## Key Breakthroughs
 
-- **Quality-Centric Routing:** Optimized the search loop to prioritize "High-Vibe" matches over count, reducing unnecessary API calls in dense urban areas (e.g., Bengaluru).
-- **The "Dead Zone" Protocol:** Short-circuit logic that provides a graceful, data-driven response when zero physical locations match the criteria, rather than allowing the LLM to invent spots.
-- **Context-Aware Reranking:** Uses Gemini to perform semantic filtering on raw JSON data, bridging the gap between rigid API categories and subjective user "Vibes."
+* **The "Dead Zone" Protocol:** A short-circuit logic that provides a graceful, data-driven fallback when zero physical locations match the criteria, preventing LLM "hallucination loops."
+* **Adaptive UI Logic:** Custom Chainlit `Action` callbacks that manage GPS permissions and automatically clean up the interface (removing buttons after selection) to ensure a clean UX.
+* **Context-Aware Reranking:** Bridges the gap between rigid API categories and subjective user "Vibes" by performing semantic filtering on raw geospatial data.
+
+---
