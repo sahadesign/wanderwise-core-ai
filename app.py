@@ -1,10 +1,14 @@
-import os
 from dotenv import load_dotenv
 import chainlit as cl
 from chainlit.input_widget import Select
+from engineio.payload import Payload
+
+import ui.helper
 from main import WanderWiseAgent
 
 load_dotenv()
+Payload.max_decode_packets = 500
+
 
 @cl.set_starters
 async def set_starters():
@@ -19,88 +23,106 @@ async def set_starters():
         ),
     ]
 
-@cl.on_settings_update
-async def setup_agent(settings):
-    # Store settings in session so cl.on_message can see them
-    cl.user_session.set("settings", settings)
-    await cl.Message(content=f"Vibe updated to: {settings['Vibe']}").send()
 
 @cl.on_chat_start
 async def start():
-    # 1. Setup the Brand "Vibe" Selector in Sidebar
+    cl.Image(name="WanderWise AI", path="./public/logo_light.svg", type="avatar")
     await cl.ChatSettings(
         [
             Select(
                 id="Vibe",
                 label="Choose your Vibe",
-                values=["Nature 🌿", "Spiritual 🧘", "Shopping 🛍️", "Historical 🏛️"],
+                values=[
+                    "General 👀",
+                    "Nature 🌿",
+                    "Spiritual 🧘",
+                    "Shopping 🛍️",
+                    "Historical 🏛️",
+                ],
                 initial_index=0,
             )
         ]
     ).send()
 
-    # 2. Initialize your Agent
-    agent = WanderWiseAgent(
-        google_api_key=os.getenv("GOOGLE_API_KEY"),
-        geo_api_key=os.getenv("GEOAPIFY_API_KEY"),
-        weather_api_key=os.getenv("OPENWEATHER_API_KEY"),
-    )
+    status_msg = cl.Message(content="Vibe: General 👀")
+    await status_msg.send()
+    cl.user_session.set("status_msg_id", status_msg.id)
+
+    agent = WanderWiseAgent()
     cl.user_session.set("agent", agent)
+
+
+@cl.on_settings_update
+async def setup_agent(settings):
+    cl.user_session.set("settings", settings)
+    msg_id = cl.user_session.get("status_msg_id")
+    if msg_id:
+        await cl.Message(
+            id=msg_id, content=f"Vibe: **{settings['Vibe']}**"
+        ).update()
+
+
+@cl.action_callback("gps_button")
+async def on_action(action: cl.Action):
+    vibe = cl.user_session.get("current_vibe") or "nature"
+    action_value = action.payload.get("value")
+
+    if action.forId:
+        await cl.Message(
+            id=action.forId, content="Selection received!", actions=[]
+        ).update()
+
+    if action_value == "allow":
+        msg = cl.Message(content="🛰️ WanderWise is fetching your location via IP...")
+        await msg.send()
+
+        coords = ui.helper.get_ip_coordinates()
+        if coords:
+            msg.content = (
+                f"📍 Location identified ({coords}). Finding '{vibe}' spots..."
+            )
+            await msg.update()
+        else:
+            # This part is CRITICAL when the API times out
+            msg.content = "⚠️ Sorry, I couldn't detect your location automatically."
+            await msg.update()
+
+            res = await cl.AskUserMessage(
+                content="Please type your city name:", timeout=30
+            ).send()
+
+            if res:
+                await ui.helper.run_agent(res["output"], vibe, None)
+    elif action_value == "deny":
+        res = await cl.AskUserMessage(
+            content="Please type your city name:", timeout=30
+        ).send()
+        if res:
+            await ui.helper.run_agent(res["output"], vibe, None)
 
 
 @cl.on_message
 async def main(message: cl.Message):
-    agent = cl.user_session.get("agent")
-    settings = cl.user_session.get("chat_settings")
-    vibe = settings.get("Vibe", "general").split(" ")[0].lower()
+    query = await ui.helper.get_intent(message.content)
+    vibe = query.get("vibe", "nature")
+    cl.user_session.set("current_vibe", vibe)
 
-    config = {"configurable": {"thread_id": cl.user_session.get("id")}}
-
-    initial_state = {
-        "user_query": message.content,
-        "user_vibe": vibe,
-        "nearby_places": [],
-        "structured_plan": {},
-    }
-    recommendation_text = "I couldn't generate a plan. Please try again!"
-    async with cl.Step(name="WanderWise Journey") as parent_step:
-        parent_step.input = message.content
-
-        async for event in agent.app.astream(initial_state, config=config):
-            for node_name, output in event.items():
-                if node_name == "llm_guide":
-                    final_output = output.get("final_recommendation", "")
-                    cl.user_session.set("final_output", final_output)
-
-                async with cl.Step(
-                    name=node_name, parent_id=parent_step.id
-                ) as node_step:
-                    if node_name == "geocode":
-                        location = output.get("user_location", "Unknown")
-                        node_step.output = f"🌎 Located destination at: {location}"
-
-                    elif node_name == "get_weather":
-                        weather = output.get("weather_context", "Checking...")
-                        node_step.output = f"☀️ Weather Check: {weather}"
-
-                    elif node_name == "fetch_nearby_places":
-                        count = len(output.get("nearby_places", []))
-                        node_step.output = f"📍 Found {count} potential spots."
-
-                    elif node_name == "rerank_results":
-                        node_step.output = (
-                            f"⚖️ Scoring results against your '{vibe}' vibe."
-                        )
-
-                    elif node_name == "generate_itinerary":
-                        node_step.output = "📝 Synthesizing your final travel plan..."
-
-                    else:
-                        # Falling back for any other nodes in graph
-                        node_step.output = f"Successfully executed {node_name}."
-
-    final_itinerary = cl.user_session.get("final_output")
-    if final_itinerary:
-        await cl.Message(content=final_itinerary).send()
+    if query["location"] == "DETECT":
+        actions = [
+            cl.Action(
+                name="gps_button",
+                label="Allow GPS 📍",
+                payload={"value": "allow"},
+            ),
+            cl.Action(
+                name="gps_button",
+                label="Type manually ⌨️",
+                payload={"value": "deny"},
+            ),
+        ]
+        await cl.Message(
+            content="I noticed you didn't specify a place. Can I use your current location?",
+            actions=actions,
+        ).send()
     else:
-        await cl.Message(content=recommendation_text).send()
+        await ui.helper.run_agent(query["location"], vibe, message)
