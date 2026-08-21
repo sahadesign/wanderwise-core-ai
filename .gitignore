@@ -3,3 +3,4 @@
 /.chainlit/translations
 /source/__pycache__
 /ui/__pycache__
+.env

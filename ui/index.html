@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="WanderWise vibe-first trip planner" />
+    <title>WanderWise - Plan your day</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="logo">WanderWise</div>
+      <div class="tagline">vibe-first trip planning</div>
+    </nav>
+
+    <main class="layout">
+      <section class="panel-left" aria-labelledby="planner-title">
+        <div class="blob blob-top"></div>
+        <div class="blob blob-bottom"></div>
+        <div class="eyebrow">Plan your day</div>
+        <h1 class="headline" id="planner-title">
+          what's the<br /><em>vibe</em> today?
+        </h1>
+        <p class="sub">
+          Tell us where you're headed, how many days you've got, and the vibe
+          you're chasing — we'll turn it into a full itinerary.
+        </p>
+
+        <form id="tripForm">
+          <div class="field">
+            <label for="location">Location</label>
+            <div class="loc-row">
+              <input
+                id="location"
+                type="text"
+                placeholder="e.g. 'Kyoto, Japan'"
+                required
+              />
+              <button
+                type="button"
+                class="btn-geo"
+                id="geoBtn"
+                title="Use my location"
+                aria-label="Use my location"
+              >
+                &#128205;
+              </button>
+            </div>
+            <div class="geo-status" id="geoStatus" aria-live="polite"></div>
+          </div>
+          <div class="field">
+            <label for="days">Days</label>
+            <input
+              id="days"
+              type="number"
+              min="1"
+              max="14"
+              step="1"
+              value="1"
+              inputmode="numeric"
+            />
+          </div>
+          <div class="field">
+            <label for="vibe">Vibe</label>
+            <div class="select-wrap">
+              <select id="vibe">
+                <option selected disabled>Select</option>
+                <option value="nature">&#127807; Nature</option>
+                <option value="spiritual">&#128720; Spiritual</option>
+                <option value="shopping">&#128717; Shopping</option>
+                <option value="historical">&#127963; Historical</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn-submit" id="submitBtn">
+            <span class="btn-text">Plan my day &rarr;</span
+            ><span class="spinner" aria-hidden="true"></span>
+          </button>
+        </form>
+      </section>
+
+      <section class="panel-right" id="panelRight" aria-live="polite">
+        <div class="empty-state" id="emptyState">
+          <div class="icon" aria-hidden="true">&#129517;</div>
+          <h3>Your vibe check lands here</h3>
+          <p>
+            Fill out the trip details on the left - your route shows up right
+            here!
+          </p>
+        </div>
+        <div class="result-hero" id="resultHero">
+          <div class="hero-top">
+            <div>
+              <div class="hero-eyebrow">Your Route</div>
+              <div class="hero-title" id="heroTitle">Bengaluru vibe check</div>
+            </div>
+            <div class="hero-badges" id="heroBadges"></div>
+          </div>
+          <div
+            class="day-tabs"
+            id="dayTabs"
+            role="tablist"
+            aria-label="Itinerary days"
+          ></div>
+          <div class="postcard"><p id="finalRec"></p></div>
+          <div class="timeline" id="timeline"></div>
+          <div class="reset-row">
+            <button class="btn-reset" id="resetBtn" type="button">
+              Plan another day
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="/static/app.js?v=ui-3"></script>
+  </body>
+</html>
