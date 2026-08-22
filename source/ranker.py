@@ -29,7 +29,34 @@ class Ranker:
 
             llm = LLM()
             response = llm.invoke([HumanMessage(content=self.prompt)])
-            raw_json = response.content.strip()
+
+            if not response or not response.content:
+                print(
+                    "INFO - Ranker received empty response from LLM. Falling back to original list."
+                )
+                return
+
+            content = response.content
+            if isinstance(content, list):
+                raw_json = "".join(
+                    [
+                        (
+                            item.get("text", str(item))
+                            if isinstance(item, dict)
+                            else str(item)
+                        )
+                        for item in content
+                    ]
+                )
+            elif isinstance(content, dict):
+                raw_json = content.get("text", str(content))
+            else:
+                raw_json = str(content)
+
+            raw_json = raw_json.strip()
+
+            print(f"DEBUG - LLM Raw Response: {raw_json[:100]}...")
+
             if "```json" in raw_json:
                 raw_json = raw_json.split("```json")[1].split("```")[0].strip()
             elif "```" in raw_json:

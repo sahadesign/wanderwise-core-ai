@@ -13,8 +13,22 @@
   --glass-border: rgb(255 255 255/0.14);
   --radius-md: 18px;
   --font-display: "Bricolage Grotesque", sans-serif;
-  --font-body: "Inter", sans-serif;
-  --font-mono: "Bricolage Grotesque", monospace;
+  --font-body: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "Plus Jakarta Sans", monospace;
+}
+body.light-theme {
+  --bg-deep: #f8fafc;
+  --bg-deep2: #f1f5f9;
+  --accent-morning: #d97706;
+  --accent-afternoon: #db2777;
+  --accent-evening: #7c3aed;
+  --accent-mint: #000000;
+  --text-light: #0f172a;
+  --text-muted: #1c1e20;
+  --text-dim: #475569;
+  --glass-bg: rgb(0 0 0 / 0.03);
+  --glass-bg-hi: rgb(0 0 0 / 0.06);
+  --glass-border: rgb(0 0 0 / 0.12);
 }
 * {
   box-sizing: border-box;
@@ -23,16 +37,37 @@
 }
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
+  width: 100%;
 }
 body {
   min-height: 100vh;
   overflow-x: hidden;
   background:
-    radial-gradient(1100px 700px at 8% -8%, #3a1a72 0%, transparent 60%),
-    radial-gradient(900px 700px at 105% 10%, #4a0f4f 0%, transparent 55%),
-    linear-gradient(180deg, var(--bg-deep), #0d0620);
+    radial-gradient(
+      1100px 700px at 8% -8%,
+      var(--bg-deep2) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 700px at 105% 10%,
+      var(--glass-bg-hi) 0%,
+      transparent 55%
+    ),
+    linear-gradient(180deg, var(--bg-deep), var(--bg-deep2));
   color: var(--text-light);
   font-family: var(--font-body);
+  transition:
+    background 0.3s ease,
+    color 0.3s ease;
+}
+
+/* Ensure light mode uses clean light gradients */
+body.light-theme {
+  background:
+    radial-gradient(1100px 700px at 8% -8%, #fde68a 0%, transparent 60%),
+    radial-gradient(900px 700px at 105% 10%, #fbcfe8 0%, transparent 55%),
+    linear-gradient(180deg, #f8fafc, #f1f5f9);
 }
 .nav {
   position: sticky;
@@ -43,8 +78,11 @@ body {
   justify-content: space-between;
   padding: 22px clamp(20px, 4vw, 52px);
   border-bottom: 1px solid var(--glass-border);
-  background: rgb(20 10 43/0.55);
+  background: var(--glass-bg);
   backdrop-filter: blur(14px);
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease;
 }
 .logo {
   display: flex;
@@ -78,6 +116,7 @@ body {
   top: 73px;
   height: calc(100vh - 73px);
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 40px 32px;
   border-right: 1px solid var(--glass-border);
   background: var(--glass-bg);
@@ -250,7 +289,7 @@ body {
 .select-wrap select:focus {
   border-color: var(--accent-mint);
   background: rgb(255 255 255/0.08);
-  box-shadow: 0 0 22px -6px var(--accent-mint);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-mint) 25%, transparent);
 }
 .select-wrap select option {
   background: var(--bg-deep2);
@@ -402,7 +441,7 @@ body {
 }
 .btn-reset {
   padding: 10px 18px;
-  border: 1px solid var(--glass-border);
+  border: 2px solid var(--glass-border);
   border-radius: 100px;
   background: none;
   color: var(--text-muted);
@@ -551,10 +590,9 @@ body {
   font-size: 0.78rem;
 }
 .stop-description {
-  margin: 0;
+  margin-top: 6px;
   color: var(--text-light);
-  font-size: 0.87rem;
-  line-height: 1.5;
+  font-size: 0.9rem;
 }
 .card-actions {
   display: flex;
@@ -611,4 +649,35 @@ body {
   .card-tags {
     justify-content: flex-start;
   }
+}
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 4px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--bg-deep2);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+}
+
+.autocomplete-item {
+  padding: 10px 14px;
+  color: var(--text-light);
+  cursor: pointer;
+  font-size: 0.88rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item:hover {
+  background: var(--glass-bg-hi);
+  color: var(--accent-morning);
 }

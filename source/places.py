@@ -9,11 +9,14 @@ class Suggestions:
         self.geo_api_key = geo_api_key
 
     VIBE_MAP = {
-        "nature": "leisure.park,leisure.park.garden,natural.forest,natural.protected_area",
-        "spiritual": "religion.place_of_worship,heritage",
-        "shopping": "commercial.shopping_mall,commercial.marketplace",
-        "historical": "heritage,building.historic,tourism.sights",
-        "general": "tourism,entertainment,leisure",
+        "foodie": "catering.restaurant,catering.cafe,catering.fast_food,catering.pub,catering.bar",
+        "nature": "leisure.park,natural.forest",
+        "spiritual": "religion.place_of_worship",
+        "shopping": "commercial.shopping_mall",
+        "historical": "heritage,building.historic",
+        "adventure": "activity.sport_club,entertainment,leisure.resort",
+        "relaxation": "leisure.spa,leisure.park",
+        "general": "tourism,entertainment",
     }
 
     def fetch_places(self, state: AgentState):
@@ -48,6 +51,9 @@ class Suggestions:
                             "lon": p["properties"].get("lon"),
                             "distance_meters": p["properties"].get("distance"),
                             "place_id": p["properties"].get("place_id"),
+                            "category": p["properties"].get(
+                                "category", "Point of Interest"
+                            ),
                         }
                     )
             state.nearby_places = state.nearby_places + unique_new

@@ -6,6 +6,7 @@ class AgentState(BaseModel):
     user_query: str
     user_location: str = ""
     user_vibe: str = "general"
+    days: int = 1
     weather_context: str = ""
     nearby_places: List[dict] = []
     structured_plan: Dict[str, List[dict]] = {}

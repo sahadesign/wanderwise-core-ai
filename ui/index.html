@@ -11,12 +11,24 @@
       href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap"
       rel="stylesheet"
     />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
     <nav class="nav">
       <div class="logo">WanderWise</div>
       <div class="tagline">vibe-first trip planning</div>
+      <button
+        id="themeToggle"
+        class="btn-reset"
+        aria-label="Toggle theme"
+        style="padding: 6px 12px; cursor: pointer"
+      >
+        ☀️ Light
+      </button>
     </nav>
 
     <main class="layout">
@@ -35,24 +47,29 @@
         <form id="tripForm">
           <div class="field">
             <label for="location">Location</label>
-            <div class="loc-row">
+            <div class="loc-row" style="position: relative">
               <input
-                id="location"
                 type="text"
-                placeholder="e.g. 'Kyoto, Japan'"
-                required
+                id="location"
+                placeholder="e.g. Rajajinagar, Bangalore"
+                autocomplete="off"
               />
               <button
                 type="button"
-                class="btn-geo"
                 id="geoBtn"
-                title="Use my location"
-                aria-label="Use my location"
+                class="btn-geo"
+                title="Use current location"
               >
-                &#128205;
+                📍
               </button>
+              <!-- Autocomplete dropdown list container -->
+              <div
+                id="autocomplete-list"
+                class="autocomplete-dropdown"
+                style="display: none"
+              ></div>
             </div>
-            <div class="geo-status" id="geoStatus" aria-live="polite"></div>
+            <div id="geoStatus" class="geo-status"></div>
           </div>
           <div class="field">
             <label for="days">Days</label>
@@ -69,18 +86,21 @@
           <div class="field">
             <label for="vibe">Vibe</label>
             <div class="select-wrap">
-              <select id="vibe">
-                <option selected disabled>Select</option>
-                <option value="nature">&#127807; Nature</option>
-                <option value="spiritual">&#128720; Spiritual</option>
-                <option value="shopping">&#128717; Shopping</option>
-                <option value="historical">&#127963; Historical</option>
+              <select id="vibe" name="vibe">
+                <option value="Select" disabled selected>Select a vibe</option>
+                <option value="nature">Nature & Outdoors</option>
+                <option value="spiritual">Spiritual & Heritage</option>
+                <option value="shopping">Shopping & Markets</option>
+                <option value="historical">Historical & Architecture</option>
+                <option value="foodie">Food & Culinary</option>
+                <option value="adventure">Adventure & Thrill</option>
+                <option value="relaxation">Relaxation & Wellness</option>
               </select>
             </div>
           </div>
           <button type="submit" class="btn-submit" id="submitBtn">
-            <span class="btn-text">Plan my day &rarr;</span
-            ><span class="spinner" aria-hidden="true"></span>
+            <span class="btn-text">Plan my day &rarr;</span>
+            <span class="spinner" aria-hidden="true"></span>
           </button>
         </form>
       </section>

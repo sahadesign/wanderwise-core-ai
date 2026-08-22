@@ -35,9 +35,16 @@ class WanderWiseAgent:
 
         return builder
 
-    def get_itinerary(self, query: str, location: str, vibe: str, user_id: str):
+    def get_itinerary(
+        self, query: str, location: str, vibe: str, days: int, user_id: str
+    ):
         config = {"configurable": {"thread_id": user_id}}
-        inputs = {"user_query": query, "user_location": location, "user_vibe": vibe}
+        inputs = {
+            "user_query": query,
+            "user_location": location,
+            "user_vibe": vibe,
+            "days": days,
+        }
         return self.app.invoke(inputs, config)
 
 
@@ -75,6 +82,7 @@ if __name__ == "__main__":
             query=scenario["name"],
             location=scenario["location"],
             vibe=scenario["vibe"],
+            days=2,
             user_id=random_user_id,
         )
 

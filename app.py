@@ -1,7 +1,8 @@
-# app.py
 import uuid
 from pathlib import Path
 
+import os
+import requests
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,6 +20,7 @@ class TripRequest(BaseModel):
     query: str
     location: str
     vibe: str = "General"
+    days: int = 1
 
 
 @app.get("/")
@@ -32,6 +34,15 @@ def create_itinerary(request: TripRequest):
         query=request.query,
         location=request.location,
         vibe=request.vibe.lower(),
+        days=request.days,
         user_id=str(uuid.uuid4()),
     )
     return result
+
+
+@app.get("/api/autocomplete")
+def autocomplete(query: str = ""):
+    api_key = os.getenv("GEOAPIFY_API_KEY")
+    url = f"https://api.geoapify.com/v1/geocode/autocomplete?text={query}&format=json&apiKey={api_key}"
+    response = requests.get(url)
+    return response.json()

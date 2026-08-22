@@ -9,31 +9,17 @@ class Itinerary:
 
     def _itinerary_plan(self, state: AgentState):
         sorted_spots = sorted(state.nearby_places, key=lambda x: x["distance_meters"])
+        target_days = max(1, state.days)
 
-        count = len(sorted_spots)
-        morning_end = max(1, count // 3)
-        afternoon_end = max(morning_end + 1, (2 * count) // 3)
+        itinerary = {f"Day {i}": [] for i in range(1, target_days + 1)}
 
-        if count == 1:
-            itinerary = {
-                "Morning (9 AM - 12 PM)": [sorted_spots[0]],
-                "Afternoon (1 PM - 5 PM)": [],
-                "Evening (6 PM - 9 PM)": [],
-            }
-        elif count == 2:
-            itinerary = {
-                "Morning (9 AM - 12 PM)": [sorted_spots[0]],
-                "Afternoon (1 PM - 5 PM)": [sorted_spots[1]],
-                "Evening (6 PM - 9 PM)": [],
-            }
-        else:
-            itinerary = {
-                "Morning (9 AM - 12 PM)": sorted_spots[:morning_end],
-                "Afternoon (1 PM - 5 PM)": sorted_spots[morning_end:afternoon_end],
-                "Evening (6 PM - 9 PM)": sorted_spots[afternoon_end:],
-            }
+        for index, spot in enumerate(sorted_spots):
+            day_index = (index % target_days) + 1
+            itinerary[f"Day {day_index}"].append(spot)
 
-        print(f"INFO - Structured itinerary planned with {len(sorted_spots)} spots.")
+        print(
+            f"INFO - Structured multi-day itinerary planned across {target_days} days with {len(sorted_spots)} total spots."
+        )
         state.structured_plan = itinerary
         return state
 
@@ -61,23 +47,75 @@ class Itinerary:
             status_msg = "Note: I searched upto 20km but found limited spots for this specific vibe"
 
         prompt = f"""
-        {status_msg}
         Context:
         - User Vibe: {state.user_vibe}
         - Weather: {state.weather_context}
-        - I have organized a logical, non-zig-zag route for the user:
+        - Route Plan:
         {plan_str}
 
-        Role: You are Wander Wise AI. Write a friendly, cohesive daily guide. 
-        1. Explain why the Morning spots are a great start.
-        2. Reference the weather for the Afternoon (e.g., if it's hot, mention staying cool).
-        3. Keep the tone matching the '{state.user_vibe}' vibe.
+        Role: You are Wander Wise AI. A helpful, cheery and confident Travel & Itinerary Planner
+        Task 1: For each location listed above, write a short, compelling, and specific 1-sentence description tailored to the '{state.user_vibe}' vibe and current weather.
+        
+        Task 2: Write a concise, actionable 2-3 sentence overview/recommendation for the entire trip that gives practical timing or pacing advice.
+
+        Return ONLY valid JSON in this exact structure:
+        {{
+          "spot_descriptions": {{
+            "Exact Spot Name 1": "Custom tailored description here...",
+            "Exact Spot Name 2": "Custom tailored description here..."
+          }},
+          "final_recommendation": "Actionable trip overview here..."
+        }}
         """
-        response = self.llm.invoke([HumanMessage(content=prompt)])
-        return {
-            "structured_plan": state.structured_plan,
-            "final_recommendation": response.content,
-        }
+        try:
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            content = response.content
+            if isinstance(content, list):
+                raw_text = "".join(
+                    [
+                        (
+                            item.get("text", str(item))
+                            if isinstance(item, dict)
+                            else str(item)
+                        )
+                        for item in content
+                    ]
+                )
+            elif isinstance(content, dict):
+                raw_text = content.get("text", str(content))
+            else:
+                raw_text = str(content)
+
+            raw_text = raw_text.strip()
+            if "```json" in raw_text:
+                raw_text = raw_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in raw_text:
+                raw_text = raw_text.split("```")[1].split("```")[0].strip()
+
+            import json
+
+            parsed_data = json.loads(raw_text)
+            descriptions = parsed_data.get("spot_descriptions", {})
+            final_rec = parsed_data.get(
+                "final_recommendation", "Enjoy your customized trip!"
+            )
+
+            for day, spots in state.structured_plan.items():
+                for spot in spots:
+                    name = spot["name"]
+                    if name in descriptions:
+                        spot["category"] = descriptions[name]
+
+            return {
+                "structured_plan": state.structured_plan,
+                "final_recommendation": final_rec,
+            }
+        except Exception as e:
+            print(f"ERROR - LLM Enrichment failed: {e}. Keeping default details.")
+            return {
+                "structured_plan": state.structured_plan,
+                "final_recommendation": "Enjoy your customized journey across these curated destinations.",
+            }
 
 
 def itinerary(state: AgentState):
